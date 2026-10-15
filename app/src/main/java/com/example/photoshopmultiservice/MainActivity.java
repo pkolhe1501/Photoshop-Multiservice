@@ -83,97 +83,14 @@ public class MainActivity extends Activity {
         ArrayList<Service> cartItems = new ArrayList<>();
         ArrayList<Integer> quantities = new ArrayList<>();
         TextView total = text("एकूण: ₹0", 22, green); content.addView(total);
-        Runnable refresh = () -> {
+        final Runnable[] refresh = new Runnable[1];
+        refresh[0] = () -> {
             cart.removeAllViews(); double sum=0;
             for (int i=0;i<cartItems.size();i++) {
                 final int idx=i; Service s=cartItems.get(i); int q=quantities.get(i); sum+=s.rate*q;
                 LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL);
                 TextView label=text(s.name+"  ₹"+money(s.rate)+" × "+q+" = ₹"+money(s.rate*q),15,Color.BLACK);
                 row.addView(label,new LinearLayout.LayoutParams(0,-2,1));
-                row.addView(button("−",()->{ quantities.set(idx,Math.max(1,quantities.get(idx)-1)); refresh.run(); }));
-                row.addView(button("+",()->{ quantities.set(idx,quantities.get(idx)+1); refresh.run(); }));
-                row.addView(button("×",()->{cartItems.remove(idx);quantities.remove(idx);refresh.run();}));
-                cart.addView(row);
-            }
-            total.setText("एकूण: ₹"+money(sum));
-        };
-        for (Service s : services) {
-            content.addView(button(s.name+" — ₹"+money(s.rate), () -> {
-                int found=-1; for(int i=0;i<cartItems.size();i++) if(cartItems.get(i).name.equals(s.name)) found=i;
-                if(found>=0) quantities.set(found,quantities.get(found)+1); else {cartItems.add(s);quantities.add(1);}
-                refresh.run();
-            }));
-        }
-        content.addView(button("बिल सेव्ह करा (डेमो)", () -> {
-            double sum=0; for(int i=0;i<cartItems.size();i++) sum+=cartItems.get(i).rate*quantities.get(i);
-            if(sum<=0){toast("कृपया सेवा निवडा");return;}
-            saveSale(customerInput.getText().toString(),sum,"सेवा बिल");
-            new AlertDialog.Builder(this).setTitle("डेमो बिल").setMessage("एकूण रक्कम: ₹"+money(sum)+"\nपेमेंट निवडण्यासाठी पुढील स्क्रीन वापरा.").setPositiveButton("ठीक", (d,w)->showHome()).show();
-        }));
-        content.addView(button("मागे",this::showHome));
-    }
-    void showQuickBill() {
-        begin("जलद बिल — फक्त एकूण रक्कम");
-        customerInput=edit("ग्राहकाचे नाव (ऐच्छिक)",1); content.addView(customerInput);
-        amountInput=edit("एकूण रक्कम ₹", android.text.InputType.TYPE_CLASS_NUMBER|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL); content.addView(amountInput);
-        Spinner spinner=new Spinner(this);
-        String[] pay={"Cash","UPI","Bank","उधारी"};
-        spinner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,pay)); content.addView(text("पेमेंट प्रकार",15,navy)); content.addView(spinner);
-        content.addView(button("बिल सेव्ह करा (डेमो)",()->{
-            try {double a=Double.parseDouble(amountInput.getText().toString()); if(a<=0)throw new Exception();
-                saveSale(customerInput.getText().toString(),a,"जलद बिल / "+spinner.getSelectedItem());
-                toast("डेमो बिल नोंदवले"); showHome();
-            } catch(Exception ex){toast("योग्य रक्कम टाका");}
-        }));
-        content.addView(button("मागे",this::showHome));
-    }
-    void showAddService() {
-        begin("नवीन सेवा जोडा");
-        serviceNameInput=edit("सेवेचे नाव",1); content.addView(serviceNameInput);
-        serviceRateInput=edit("दर ₹",android.text.InputType.TYPE_CLASS_NUMBER|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL); content.addView(serviceRateInput);
-        content.addView(button("सेवा जोडा (डेमो)",()->{
-            String n=serviceNameInput.getText().toString().trim();
-            try {double r=Double.parseDouble(serviceRateInput.getText().toString()); if(n.isEmpty()||r<0)throw new Exception();
-                services.add(new Service(n,r)); toast("सेवा या डेमोमध्ये जोडली"); showHome();
-            }catch(Exception ex){toast("सेवेचे नाव आणि योग्य दर टाका");}
-        }));
-        content.addView(button("मागे",this::showHome));
-    }
-    void showExpense() {
-        begin("खर्च नोंदवा");
-        expenseNameInput=edit("खर्चाचे नाव — उदा. इंटरनेट, वीज",1); content.addView(expenseNameInput);
-        expenseAmountInput=edit("रक्कम ₹",android.text.InputType.TYPE_CLASS_NUMBER|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL); content.addView(expenseAmountInput);
-        Spinner p=new Spinner(this); p.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Cash","UPI","Bank"}));
-        content.addView(text("पेमेंट प्रकार",15,navy)); content.addView(p);
-        content.addView(button("खर्च सेव्ह करा (डेमो)",()->{
-            try {double a=Double.parseDouble(expenseAmountInput.getText().toString()); if(a<=0)throw new Exception();
-                expenseTotal+=a; transactions.add("खर्च: "+expenseNameInput.getText()+" ₹"+money(a)+" / "+p.getSelectedItem());
-                toast("खर्च या डेमोमध्ये नोंदवला"); showHome();
-            }catch(Exception ex){toast("खर्चाचे नाव आणि योग्य रक्कम टाका");}
-        }));
-        content.addView(button("मागे",this::showHome));
-    }
-    void showReport() {
-        begin("दैनिक / मासिक रिपोर्ट");
-        content.addView(text("या डेमोमधील विक्री: ₹"+money(salesTotal),20,green));
-        content.addView(text("या डेमोमधील खर्च: ₹"+money(expenseTotal),20,Color.RED));
-        content.addView(text("तात्पुरता फरक: ₹"+money(salesTotal-expenseTotal),20,navy));
-        addSection("अलीकडील नोंदी");
-        if(transactions.isEmpty()) content.addView(text("अजून नोंदी नाहीत.",15,Color.DKGRAY));
-        else for(int i=transactions.size()-1;i>=0;i--) content.addView(text("• "+transactions.get(i),14,Color.DKGRAY));
-        content.addView(button("मागे",this::showHome));
-    }
-    void showSyncInfo() {
-        begin("Cloud Sync / Google Sheets");
-        content.addView(text("ही प्रारंभिक डेमो आवृत्ती आहे. दोन मोबाइल सिंक आणि Google Sheets बॅकअप अद्याप सक्रिय नाही.",17,Color.DKGRAY));
-        content.addView(text("पूर्ण करण्यासाठी आवश्यक:",16,navy));
-        content.addView(text("1. Firebase प्रोजेक्ट व Android app नोंदणी\n2. google-services.json\n3. दोन्ही पार्टनरसाठी लॉगिन/परवानग्या\n4. Firestore database rules\n5. Google Sheets API साठी सुरक्षित server-side integration\n6. बॅकअप pending/synced/failed स्थिती व retry",15,Color.DKGRAY));
-        content.addView(button("मागे",this::showHome));
-    }
-    void saveSale(String customer,double amount,String type) {
-        salesTotal += amount;
-        transactions.add(type+": "+(customer==null||customer.trim().isEmpty()?"Walk-in":customer.trim())+" ₹"+money(amount));
-    }
-    String money(double n) { return String.format(Locale.US,"%.2f",n).replaceAll("\\.00$",""); }
-    void toast(String s) { Toast.makeText(this,s,Toast.LENGTH_SHORT).show(); }
-}
+                row.addView(button("−",()->{ quantities.set(idx,Math.max(1,quantities.get(idx)-1)); refresh[0].run(); }));
+                row.addView(button("+",()->{ quantities.set(idx,quantities.get(idx)+1); refresh[0].run(); }));
+                row.addView(button("×",()->{cartItems.remove(idx);quantities.remove(idx);refresh[0].run();}));
